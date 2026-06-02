@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="HBridgeController.vcxproj" Id="a9abe353-f938-4911-b1bd-16eee3deb902" />
+</Solution>
