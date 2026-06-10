@@ -17,7 +17,15 @@ public:
     void SetOnDataReceived(OnDataReceived cb) { m_onData = cb; }
     void SetOnConnectionChanged(OnConnectionChanged cb) { m_onConn = cb; }
     void RunReadThread(); void StopReadThread();
+    using OnRawDataTx = std::function<void(const std::string&)>;
+    using OnRawDataRx = std::function<void(const std::string&)>;
+    void SetOnRawDataTx(OnRawDataTx cb) { m_onRawTx = cb; }
+    void SetOnRawDataRx(OnRawDataRx cb) { m_onRawRx = cb; }
+    // Dans SerialController.h
+    bool SendCommandAndWait(const std::string& cmd, const std::string& expectedResp, DWORD timeoutMs = 100);
 private:
+    OnRawDataTx m_onRawTx;
+    OnRawDataRx m_onRawRx;
     HANDLE m_hComm = INVALID_HANDLE_VALUE;
     std::atomic<bool> m_connected{false};
     std::atomic<bool> m_readThreadRunning{false};

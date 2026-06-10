@@ -28,6 +28,10 @@ void SerialController::Disconnect() {
 
 bool SerialController::SendCommand(const std::string& cmd) {
     if (!m_connected || m_hComm == INVALID_HANDLE_VALUE) return false;
+
+    // ✅ Trace TX avant envoi
+    if (m_onRawTx) m_onRawTx(cmd + "\r\n");
+
     DWORD written = 0;
     OVERLAPPED ov = { 0 };
     ov.hEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
@@ -67,7 +71,22 @@ void SerialController::RunReadThread() {
 }
 
 void SerialController::ProcessByte(char c) {
+    //if (c == '\r') return;
+    //if (c == '\n') { if (!m_rxBuffer.empty() && m_onData) m_onData(m_rxBuffer); m_rxBuffer.clear(); }
+    //else m_rxBuffer += c;
+
+
     if (c == '\r') return;
-    if (c == '\n') { if (!m_rxBuffer.empty() && m_onData) m_onData(m_rxBuffer); m_rxBuffer.clear(); }
-    else m_rxBuffer += c;
+    if (c == '\n') {
+        if (!m_rxBuffer.empty()) {
+            // ✅ Trace RX avant parsing
+            if (m_onRawRx) m_onRawRx(m_rxBuffer + "\n");
+
+            if (m_onData) m_onData(m_rxBuffer);
+        }
+        m_rxBuffer.clear();
+    }
+    else {
+        m_rxBuffer += c;
+    }
 }
