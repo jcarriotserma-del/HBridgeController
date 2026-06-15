@@ -13,7 +13,7 @@ MainWindow::MainWindow(HINSTANCE hInst) : m_hInst(hInst) {
         PostMessage(m_hwnd, WM_CONNECTION_CHANGED, connected, 0);
         });
 
-    // Callbacks Trace COM Brute
+    // ✅ Callbacks Trace COM Brute
     m_serial.SetOnRawDataTx([this](const std::string& data) {
         PostMessage(m_hwnd, WM_USER + 10, 0, reinterpret_cast<LPARAM>(new std::string(data)));
         });
@@ -35,10 +35,10 @@ HWND MainWindow::Create(HWND parent) {
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     RegisterClassW(&wc);
 
-    // ✅ Hauteur ajustée à 850px pour contenir la trace COM
+    // Hauteur de la fenêtre
     m_hwnd = CreateWindowExW(0, L"HBridgeWndClass", L"Contrôle Pont en H - STM32 (C++)",
         WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX & ~WS_THICKFRAME,
-        CW_USEDEFAULT, CW_USEDEFAULT, 560, 850,
+        CW_USEDEFAULT, CW_USEDEFAULT, 560, 780,
         parent, nullptr, m_hInst, this);
 
     if (m_hwnd) {
@@ -68,7 +68,7 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         case IDC_DEAD_APPLY: pThis->OnApplyDeadTime(); break;
         case ID_EXIT: DestroyWindow(hwnd); break;
 
-            // ✅ Gestion de la case à cocher Trace COM (ID 5001)
+            // ✅ Gestion de la checkbox Trace COM (ID 5001)
         case 5001:
             if (HIWORD(wp) == BN_CLICKED) {
                 pThis->m_rawTraceEnabled = !pThis->m_rawTraceEnabled;
@@ -87,16 +87,7 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         }
         return 0;
 
-    case WM_DRAWITEM: {
-        LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lp;
-        if (dis->CtlID == IDC_GRAPH_AREA && dis->hwndItem == pThis->m_hGraph) {
-            pThis->DrawGraph(dis->hDC);
-            return TRUE;
-        }
-        break;
-    }
-
-                    // ✅ Messages Trace COM
+        // ✅ Messages Trace COM
     case WM_USER + 10: {
         auto* data = reinterpret_cast<std::string*>(lp);
         if (data) { pThis->LogRawTx(*data); delete data; }
@@ -177,30 +168,34 @@ void MainWindow::CreateControls() {
     m_hBtnReset = CreateWindowW(L"BUTTON", L"🔄 Réarmement", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 280, 360, 150, 42, m_hwnd, (HMENU)IDC_RESET_BTN, m_hInst, nullptr);
     SendMessage(m_hBtnReset, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-    // Graphique
-    m_hGraph = CreateWindowW(L"STATIC", nullptr, WS_CHILD | WS_VISIBLE | WS_BORDER | SS_OWNERDRAW, 10, 420, 520, 180, m_hwnd, (HMENU)IDC_GRAPH_AREA, m_hInst, nullptr);
-    CreateWindowW(L"STATIC", L" PWM : CH1(Vert) | CH2(Rouge) | Dead Time = zones grises", WS_CHILD | WS_VISIBLE | SS_CENTER, 10, 605, 520, 18, m_hwnd, nullptr, m_hInst, nullptr);
-
-    // Log Principal
+    // Log Principal (y=430, H=80)
     HFONT hConsole = CreateFontW(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, L"Consolas");
-    m_hLogBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", nullptr, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY, 10, 630, 520, 50, m_hwnd, (HMENU)IDC_LOG_BOX, m_hInst, nullptr);
+    m_hLogBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", nullptr,
+        WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
+        10, 430, 520, 80, m_hwnd, (HMENU)IDC_LOG_BOX, m_hInst, nullptr);
     SendMessage(m_hLogBox, WM_SETFONT, (WPARAM)hConsole, TRUE);
 
-    // ✅ Trace COM Brute
-    CreateWindowW(L"STATIC", L"Trace COM:", WS_CHILD | WS_VISIBLE, 10, 685, 80, 18, m_hwnd, nullptr, m_hInst, nullptr);
-    m_hChkRawTrace = CreateWindowW(L"BUTTON", L"Afficher", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 90, 683, 80, 22, m_hwnd, (HMENU)5001, m_hInst, nullptr);
+    // ✅ Trace COM Brute (y=515, H=180) ← AGRANDIE ICI
+    CreateWindowW(L"STATIC", L"Trace COM:", WS_CHILD | WS_VISIBLE, 10, 515, 80, 18, m_hwnd, nullptr, m_hInst, nullptr);
+    m_hChkRawTrace = CreateWindowW(L"BUTTON", L"Afficher",
+        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+        90, 513, 80, 22, m_hwnd, (HMENU)5001, m_hInst, nullptr);
     SendMessage(m_hChkRawTrace, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-    m_hRawLogBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", nullptr, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY, 10, 705, 520, 90, m_hwnd, (HMENU)5002, m_hInst, nullptr);
+    m_hRawLogBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", nullptr,
+        WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
+        10, 535, 520, 180, m_hwnd, (HMENU)5002, m_hInst, nullptr); // Hauteur passée à 180
     HFONT hTiny = CreateFontW(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, L"Consolas");
     SendMessage(m_hRawLogBox, WM_SETFONT, (WPARAM)hTiny, TRUE);
 
     // Status Bar
-    m_hStatusBar = CreateWindowW(STATUSCLASSNAME, L"Déconnecté", WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, 0, 0, 0, m_hwnd, (HMENU)IDC_STATUS_BAR, m_hInst, nullptr);
+    m_hStatusBar = CreateWindowW(STATUSCLASSNAME, L"Déconnecté",
+        WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, 0, 0, 0, m_hwnd, (HMENU)IDC_STATUS_BAR, m_hInst, nullptr);
 
     EnableControls(false);
 }
 
+// ✅ Implémentation Trace COM Brute
 void MainWindow::LogRawTx(const std::string& data) {
     if (!m_rawTraceEnabled || !m_hRawLogBox) return;
     SYSTEMTIME st; GetLocalTime(&st);
@@ -225,65 +220,6 @@ void MainWindow::LogRawRx(const std::string& data) {
     SendMessage(m_hRawLogBox, WM_VSCROLL, SB_BOTTOM, 0);
 }
 
-void MainWindow::UpdateGraph() {
-    if (!m_hGraph) return;
-    InvalidateRect(m_hGraph, nullptr, TRUE);
-    UpdateWindow(m_hGraph);
-}
-
-void MainWindow::DrawGraph(HDC hdc) {
-    RECT rect; GetClientRect(m_hGraph, &rect);
-    int width = rect.right;
-    int height = rect.bottom;
-
-    HBRUSH hBrushBg = CreateSolidBrush(RGB(20, 20, 20));
-    FillRect(hdc, &rect, hBrushBg);
-    DeleteObject(hBrushBg);
-
-    double periodUs = 1000000.0 / m_currentFreq;
-    double pulseWidthUs = periodUs * (m_currentDuty / 100.0);
-    double deadTimeUs = m_currentDeadTime;
-    double totalTimeUs = periodUs * 2.0;
-    double pxPerUs = (double)width / totalTimeUs;
-
-    HPEN hPenGrid = CreatePen(PS_SOLID, 1, RGB(50, 50, 50));
-    HPEN hOldPen = (HPEN)SelectObject(hdc, hPenGrid);
-    MoveToEx(hdc, 0, height / 2, nullptr);
-    LineTo(hdc, width, height / 2);
-    SelectObject(hdc, hOldPen);
-    DeleteObject(hPenGrid);
-
-    HPEN hPenCh1 = CreatePen(PS_SOLID, 3, RGB(0, 255, 0));
-    HPEN hPenCh2 = CreatePen(PS_SOLID, 3, RGB(255, 50, 50));
-
-    int yHigh = height / 4;
-    int yLow = (height * 3) / 4;
-
-    // CH1 (Vert)
-    SelectObject(hdc, hPenCh1);
-    MoveToEx(hdc, 0, yHigh, nullptr);
-    int x1 = (int)((pulseWidthUs - deadTimeUs) * pxPerUs);
-    LineTo(hdc, x1, yHigh); LineTo(hdc, x1, yLow);
-    int x2 = (int)(periodUs * pxPerUs);
-    LineTo(hdc, x2, yLow);
-    int x3 = (int)((periodUs + deadTimeUs) * pxPerUs);
-    LineTo(hdc, x3, yLow);
-    int x4 = (int)((periodUs + periodUs) * pxPerUs);
-    LineTo(hdc, x4, yLow);
-
-    // CH2 (Rouge - Décalé par Dead Time)
-    SelectObject(hdc, hPenCh2);
-    MoveToEx(hdc, 0, yLow, nullptr);
-    int x_dead_start = (int)(deadTimeUs * pxPerUs);
-    LineTo(hdc, x_dead_start, yLow);
-    int x_ch2_on = (int)((periodUs + pulseWidthUs - deadTimeUs) * pxPerUs);
-    LineTo(hdc, x_dead_start, yHigh); LineTo(hdc, x_ch2_on, yHigh);
-    LineTo(hdc, x2, yLow); LineTo(hdc, x4, yLow);
-
-    DeleteObject(hPenCh1);
-    DeleteObject(hPenCh2);
-}
-
 void MainWindow::RefreshPortList() {
     SendMessage(m_hComboPorts, CB_RESETCONTENT, 0, 0);
     HKEY hKey;
@@ -306,7 +242,7 @@ void MainWindow::OnConnect() {
         SendMessageW(m_hComboPorts, CB_GETLBTEXT, SendMessage(m_hComboPorts, CB_GETCURSEL, 0, 0), (LPARAM)port);
         if (m_serial.Connect(WideStringToString(port))) {
             LogMessage(L"✅ Connecté");
-            m_serial.SendCommand(Protocol::MakeStatusCmd()); // ✅ Avec \r\n
+            m_serial.SendCommand(Protocol::MakeStatusCmd());
         }
         else {
             LogMessage(L"❌ Échec connexion");
@@ -317,36 +253,33 @@ void MainWindow::OnConnect() {
 
 void MainWindow::OnEStop() {
     if (MessageBoxW(m_hwnd, L"Confirmer l'arrêt d'urgence ?", L"⚠️ E-STOP", MB_YESNO | MB_ICONWARNING) == IDYES) {
-        m_serial.SendCommand(Protocol::MakeEStopCmd()); // ✅ Avec \r\n
+        m_serial.SendCommand(Protocol::MakeEStopCmd());
         LogMessage(L"🛑 E-STOP envoyé");
     }
 }
 
 void MainWindow::OnReset() {
-    m_serial.SendCommand(Protocol::MakeResetCmd()); // ✅ Avec \r\n
+    m_serial.SendCommand(Protocol::MakeResetCmd());
     LogMessage(L"🔄 Réarmement envoyé");
 }
 
+// ✅ COMMANDE ATOMIQUE : Envoie Freq, Duty et DeadTime en une seule trame
 void MainWindow::OnApplyFreq() {
     wchar_t t[32] = { 0 }; GetWindowTextW(m_hEditFreq, t, _countof(t));
     try {
         uint32_t f = std::stoul(WideStringToString(t));
-
         // ✅ Plage corrigée pour NUCLEO-H723ZG : 120kHz - 250kHz
         if (f >= 120000 && f <= 250000) {
             m_currentFreq = f;
 
-            // ✅ ENVOI ATOMIQUE des 3 paramètres en une seule commande
+            // ✅ ENVOI ATOMIQUE : Tout s'adapte en même temps sur le MCU
             m_serial.SendCommand(Protocol::MakePwmConfigCmd(
                 m_currentFreq,
                 m_currentDuty,
                 m_currentDeadTime
             ));
 
-            LogMessage((L"📡 PWM Config: F=" + std::to_wstring(f) +
-                L"Hz, D=" + std::to_wstring(m_currentDuty) +
-                L"%, DT=" + std::to_wstring(m_currentDeadTime) + L"µs").c_str());
-            UpdateGraph();
+            LogMessage((L"📡 Config PWM: F=" + std::to_wstring(f) + L"Hz").c_str());
         }
         else {
             LogMessage(L"❌ Plage valide : 120kHz - 250kHz");
@@ -355,14 +288,16 @@ void MainWindow::OnApplyFreq() {
     catch (...) { LogMessage(L"❌ Fréquence invalide"); }
 }
 
+// ✅ COMMANDE ATOMIQUE
 void MainWindow::OnApplyDeadTime() {
     wchar_t t[32] = { 0 }; GetWindowTextW(m_hEditDead, t, _countof(t));
     try {
         float d = std::stof(WideStringToString(t));
-        if (d >= 0.1f && d <= 1.0f) {  // ✅ Plage 100ns - 1000ns
-            m_currentDeadTime = d;  // ✅ Sauvegarde pour le graphique
+        // ✅ Plage corrigée : 0.1µs - 1.0µs
+        if (d >= 0.1f && d <= 1.0f) {
+            m_currentDeadTime = d;
 
-            // ✅ Envoi atomique
+            // ✅ ENVOI ATOMIQUE
             m_serial.SendCommand(Protocol::MakePwmConfigCmd(
                 m_currentFreq,
                 m_currentDuty,
@@ -370,7 +305,6 @@ void MainWindow::OnApplyDeadTime() {
             ));
 
             LogMessage((L"📡 DeadTime: " + std::to_wstring(d * 1000) + L" ns").c_str());
-            UpdateGraph();
         }
         else {
             LogMessage(L"❌ Plage : 0.1µs - 1.0µs");
@@ -379,13 +313,14 @@ void MainWindow::OnApplyDeadTime() {
     catch (...) { LogMessage(L" Dead Time invalide"); }
 }
 
+// ✅ COMMANDE ATOMIQUE
 void MainWindow::OnDutyChanged(int v) {
     wchar_t txt[16]; swprintf_s(txt, L"%d%%", v);
     SetWindowTextW(m_hLabelDuty, txt);
 
-    m_currentDuty = static_cast<uint8_t>(v);  // ✅ Sauvegarde
+    m_currentDuty = static_cast<uint8_t>(v);
 
-    // ✅ Envoi atomique
+    // ✅ ENVOI ATOMIQUE
     m_serial.SendCommand(Protocol::MakePwmConfigCmd(
         m_currentFreq,
         m_currentDuty,
@@ -393,12 +328,13 @@ void MainWindow::OnDutyChanged(int v) {
     ));
 
     LogMessage((L"📡 Duty: " + std::to_wstring(v) + L"%").c_str());
-    UpdateGraph();
 }
 
 void MainWindow::OnSerialData(const std::string& line) {
     if (line == Protocol::RESP_OK) {}
     else if (line == Protocol::RESP_ERR) LogMessage(L"❌ Commande invalide (MCU)");
+
+    // ✅ GESTION SPÉCIFIQUE E-STOP : Désactive les commandes mais garde Reset actif
     else if (line == Protocol::RESP_ESTOP) {
         LogMessage(L"🛑 MCU: E-STOP activé");
 
@@ -413,6 +349,8 @@ void MainWindow::OnSerialData(const std::string& line) {
         // ✅ ACTIVER le bouton Réarmement pour permettre de sortir de l'état d'urgence
         EnableWindow(m_hBtnReset, TRUE);
     }
+
+    // ✅ GESTION DU RETOUR À LA NORMALE
     else if (line == Protocol::RESP_RESET) {
         LogMessage(L"🔄 MCU: Réarmé");
 
@@ -436,7 +374,7 @@ void MainWindow::OnSerialData(const std::string& line) {
     }
     else {
         std::wstring wline(line.begin(), line.end());
-        LogMessage((L"  " + wline).c_str());
+        LogMessage((L"📥  " + wline).c_str());
     }
 }
 
@@ -445,7 +383,6 @@ void MainWindow::OnConnectionChanged(bool c) {
     UpdateStatus(c ? L"Connecté" : L"Déconnecté");
     SetWindowTextW(m_hBtnConnect, c ? L"Déconnecter" : L"Connecter");
     LogMessage(c ? L"🔗 Connecté" : L"🔌 Déconnecté");
-    if (c) UpdateGraph();
 }
 
 void MainWindow::LogMessage(const wchar_t* msg) {
@@ -463,25 +400,15 @@ void MainWindow::UpdateStatus(const wchar_t* t) {
 }
 
 void MainWindow::EnableControls(bool connected) {
-    // Le bouton Connect/Disconnect est TOUJOURS actif
     EnableWindow(m_hBtnConnect, TRUE);
-
-    // La ComboBox des ports est active SEULEMENT si déconnecté
     EnableWindow(m_hComboPorts, !connected);
-
-    // Les contrôles de commande sont actifs SEULEMENT si connecté
     EnableWindow(m_hEditFreq, connected);
     EnableWindow(m_hBtnFreqApply, connected);
-
     EnableWindow(m_hSliderDuty, connected);
-
     EnableWindow(m_hEditDead, connected);
     EnableWindow(m_hBtnDeadApply, connected);
-
     EnableWindow(m_hBtnEStop, connected);
-    EnableWindow(m_hBtnReset, connected); // ✅ Le bouton Reset suit l'état de connexion
-
-    // La zone de log est toujours active
+    EnableWindow(m_hBtnReset, connected);
     EnableWindow(m_hLogBox, TRUE);
 }
 
