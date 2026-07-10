@@ -62,9 +62,18 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         case ID_CONNECT: pThis->OnConnect(); break;
+        case ID_REFRESH_PORTS: pThis->OnRefreshPorts(); break;  // ✅ NOUVEAU
         case IDC_ESTOP_BTN: pThis->OnEStop(); break;
         case IDC_RESET_BTN: pThis->OnReset(); break;
         case IDC_FREQ_APPLY: pThis->OnApplyFreq(); break;
+
+            // ✅ NOUVEAUX BOUTONS +/- 1kHz
+        case IDC_FREQ_MINUS1K: pThis->OnFreqAdjust(-1000); break;
+        case IDC_FREQ_PLUS1K:  pThis->OnFreqAdjust(1000); break;
+            // ✅ NOUVEAUX CAS POUR +/- 10kHz
+        case IDC_FREQ_PLUS:  pThis->OnFreqAdjust(10000); break;
+        case IDC_FREQ_MINUS: pThis->OnFreqAdjust(-10000); break;
+
         case IDC_DEAD_APPLY: pThis->OnApplyDeadTime(); break;
         case ID_EXIT: DestroyWindow(hwnd); break;
 
@@ -119,6 +128,59 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+void MainWindow::OnFreqAdjust(int delta) {
+    try {
+        // 1. Calculer la nouvelle fréquence
+        uint32_t newFreq = m_currentFreq + delta;
+
+        // 2. Bloquer aux limites (120kHz - 250kHz)
+        if (newFreq < 120000) newFreq = 120000;
+        if (newFreq > 250000) newFreq = 250000;
+
+        // 3. Mettre à jour la variable interne
+        m_currentFreq = newFreq;
+
+        // 4. ✅ METTRE À JOUR L'AFFICHAGE (C'est l'étape manquante)
+        wchar_t txt[32];
+        swprintf_s(txt, L"%lu", newFreq);
+        SetWindowTextW(m_hEditFreq, txt);
+
+        // 5. Envoyer la commande au STM32 (Comme si on avait cliqué sur Appliquer)
+        m_serial.SendCommand(Protocol::MakePwmConfigCmd(
+            m_currentFreq,
+            m_currentDuty,
+            m_currentDeadTime
+        ));
+
+        LogMessage((L" Freq ajustée : " + std::to_wstring(newFreq) + L" Hz").c_str());
+    }
+    catch (...) {
+        LogMessage(L"❌ Erreur ajustement fréquence");
+    }
+}
+
+void MainWindow::OnRefreshPorts() {
+    // Mémoriser le port actuellement sélectionné
+    wchar_t currentPort[64] = { 0 };
+    int selectedIndex = static_cast<int>(SendMessageW(m_hComboPorts, CB_GETCURSEL, 0, 0));
+    if (selectedIndex >= 0) {
+        SendMessageW(m_hComboPorts, CB_GETLBTEXT, selectedIndex, (LPARAM)currentPort);
+    }
+
+    // Rafraîchir la liste
+    RefreshPortList();
+
+    // Tenter de resélectionner le même port s'il existe toujours
+    if (currentPort[0] != 0) {
+        int newIndex = static_cast<int>(SendMessageW(m_hComboPorts, CB_FINDSTRINGEXACT, -1, (LPARAM)currentPort));
+        if (newIndex >= 0) {
+            SendMessageW(m_hComboPorts, CB_SETCURSEL, newIndex, 0);
+        }
+    }
+
+    LogMessage(L"🔄 Liste des ports COM rafraîchie");
+}
+
 void MainWindow::CreateControls() {
     HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, L"Segoe UI");
 
@@ -140,16 +202,54 @@ void MainWindow::CreateControls() {
     CreateWindowExW(0, L"BUTTON", L"Paramètres PWM", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 10, 85, 520, 240, m_hwnd, nullptr, m_hInst, nullptr);
     CreateWindowExW(0, L"BUTTON", L"Sécurité", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 10, 335, 520, 75, m_hwnd, nullptr, m_hInst, nullptr);
 
+
+
     // Connexion
     m_hComboPorts = CreateWindowExW(0, L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 30, 32, 150, 200, m_hwnd, (HMENU)2000, m_hInst, nullptr);
     SendMessage(m_hComboPorts, WM_SETFONT, (WPARAM)hFont, TRUE);
     RefreshPortList();
-    m_hBtnConnect = addBtn(m_hwnd, L"Connecter", 190, 32, 110, 28, ID_CONNECT);
 
-    // PWM
+    // ✅ BOUTON RAFRAÎCHIR LES PORTS COM
+    HWND m_hBtnRefreshPorts = CreateWindowW(L"BUTTON", L"🔄",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        185, 32, 35, 28, m_hwnd, (HMENU)ID_REFRESH_PORTS, m_hInst, nullptr);
+    SendMessage(m_hBtnRefreshPorts, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SetWindowTextW(m_hBtnRefreshPorts, L"↻");  // Symbole rafraîchissement
+
+    m_hBtnConnect = addBtn(m_hwnd, L"Connecter", 225, 32, 110, 28, ID_CONNECT);
+
+    /* ---------------- PWM ---------------- */
     addStatic(m_hwnd, L"Fréquence (Hz):", 30, 107, 120, 20);
-    m_hEditFreq = addEdit(m_hwnd, L"120000", 30, 127, 90, 26, IDC_FREQ_EDIT);
-    m_hBtnFreqApply = addBtn(m_hwnd, L"Appliquer", 130, 127, 90, 26, IDC_FREQ_APPLY); // ✅ Handle sauvegardé
+
+    // 1. Champ de saisie (X=30, W=90 -> Fin à 120)
+    m_hEditFreq = addEdit(m_hwnd, L"180000", 30, 127, 90, 26, IDC_FREQ_EDIT);
+
+    // 2. Bouton Appliquer (X=130, W=75 -> Fin à 205)
+    m_hBtnFreqApply = addBtn(m_hwnd, L"Appliquer", 130, 127, 75, 26, IDC_FREQ_APPLY);
+
+    // 3. Bouton -1kHz (X=215, W=60 -> Fin à 275)
+    m_hBtnFreqMinus1k = CreateWindowW(L"BUTTON", L"-1kHz", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        215, 127, 60, 26, m_hwnd, (HMENU)IDC_FREQ_MINUS1K, m_hInst, nullptr);
+    SendMessage(m_hBtnFreqMinus1k, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+    // 4. Bouton +1kHz (X=285, W=60 -> Fin à 345)
+    m_hBtnFreqPlus1k = CreateWindowW(L"BUTTON", L"+1kHz", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        285, 127, 60, 26, m_hwnd, (HMENU)IDC_FREQ_PLUS1K, m_hInst, nullptr);
+    SendMessage(m_hBtnFreqPlus1k, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+    // 5. Bouton -10kHz (X=355, W=65 -> Fin à 420)
+    m_hBtnFreqMinus = CreateWindowW(L"BUTTON", L"-10kHz", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        355, 127, 65, 26, m_hwnd, (HMENU)IDC_FREQ_MINUS, m_hInst, nullptr);
+    SendMessage(m_hBtnFreqMinus, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+    // 6. Bouton +10kHz (X=430, W=65 -> Fin à 495)
+    m_hBtnFreqPlus = CreateWindowW(L"BUTTON", L"+10kHz", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        430, 127, 65, 26, m_hwnd, (HMENU)IDC_FREQ_PLUS, m_hInst, nullptr);
+    SendMessage(m_hBtnFreqPlus, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+
+    // Déplacer le bouton Appliquer pour faire de la place
+    //m_hBtnFreqApply = addBtn(m_hwnd, L"Appliquer", 280, 127, 90, 26, IDC_FREQ_APPLY);
 
     addStatic(m_hwnd, L"Rapport cyclique:", 30, 167, 120, 20);
     m_hSliderDuty = CreateWindowW(TRACKBAR_CLASSW, nullptr, WS_CHILD | WS_VISIBLE | TBS_AUTOTICKS | TBS_TOOLTIPS, 30, 187, 380, 35, m_hwnd, (HMENU)IDC_DUTY_SLIDER, m_hInst, nullptr);
@@ -404,6 +504,11 @@ void MainWindow::EnableControls(bool connected) {
     EnableWindow(m_hComboPorts, !connected);
     EnableWindow(m_hEditFreq, connected);
     EnableWindow(m_hBtnFreqApply, connected);
+    // ✅ AJOUT DES NOUVEAUX BOUTONS
+    EnableWindow(m_hBtnFreqMinus1k, connected);
+    EnableWindow(m_hBtnFreqPlus1k, connected);
+    EnableWindow(m_hBtnFreqMinus, connected);
+    EnableWindow(m_hBtnFreqPlus, connected);
     EnableWindow(m_hSliderDuty, connected);
     EnableWindow(m_hEditDead, connected);
     EnableWindow(m_hBtnDeadApply, connected);

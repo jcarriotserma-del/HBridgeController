@@ -1,6 +1,10 @@
 ﻿#pragma once
 #define ID_CONNECT 1001
 #define ID_EXIT 1002
+#define IDC_FREQ_PLUS  1004  // Valeur à ajuster si conflit
+#define IDC_FREQ_MINUS 1005
+#define IDC_FREQ_MINUS1K 1006
+#define IDC_FREQ_PLUS1K  1007
 #define IDC_FREQ_EDIT 2001
 #define IDC_FREQ_APPLY 2002
 #define IDC_DUTY_SLIDER 2003

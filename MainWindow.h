@@ -24,6 +24,7 @@ public:
     void LogMessage(const wchar_t* msg);
     void UpdateStatus(const wchar_t* text);
     void EnableControls(bool enable);
+    void OnRefreshPorts();
 
 private:
     // Interface
@@ -34,6 +35,11 @@ private:
     HWND m_hLogBox = nullptr, m_hStatusBar = nullptr;
     HWND m_hBtnFreqApply = nullptr;
     HWND m_hBtnDeadApply = nullptr;
+    HWND m_hBtnFreqPlus = nullptr;
+    HWND m_hBtnFreqMinus = nullptr;
+    HWND m_hBtnFreqMinus1k = nullptr;
+    HWND m_hBtnFreqPlus1k = nullptr;
+    void OnFreqAdjust(int delta);
 
     // ✅ Trace COM Brute (conservé)
     HWND m_hRawLogBox = nullptr;
@@ -43,7 +49,7 @@ private:
     void LogRawRx(const std::string& data);
 
     // État courant (conservé pour la logique, même sans graphique)
-    uint32_t m_currentFreq = 120000; // 120kHz par défaut
+    uint32_t m_currentFreq = 180000; // 120kHz par défaut
     uint8_t m_currentDuty = 50;
     float m_currentDeadTime = 0.3f;  // 300ns par défaut
 
